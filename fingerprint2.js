@@ -1,5 +1,5 @@
 /*
-* Fingerprintjs2 1.0.1 - Modern & flexible browser fingerprint library v2
+* Fingerprintjs2 2.0.0-dev - Modern & flexible browser fingerprint library v2
 * https://github.com/Valve/fingerprintjs2
 * Copyright (c) 2015 Valentin Vasilyev (valentin.vasilyev@outlook.com)
 * Licensed under the MIT (http://www.opensource.org/licenses/mit-license.php) license.
@@ -55,8 +55,6 @@
   }
   var Fingerprint2 = function(options) {
     var defaultOptions = {
-      swfContainerId: "fingerprintjs2",
-      swfPath: "flash/compiled/FontList.swf",
       detectScreenOrientation: true,
       sortPluginsFor: [/palemoon/i]
     };
@@ -97,14 +95,13 @@
       keys = this.pluginsKey(keys);
       keys = this.canvasKey(keys);
       keys = this.webglKey(keys);
-      keys = this.adBlockKey(keys);
       keys = this.hasLiedLanguagesKey(keys);
       keys = this.hasLiedResolutionKey(keys);
       keys = this.hasLiedOsKey(keys);
       keys = this.hasLiedBrowserKey(keys);
       keys = this.touchSupportKey(keys);
       var that = this;
-      this.fontsKey(keys, function(newKeys){
+      this.jsFontsKey(keys, function(newKeys){
         var values = [];
         newKeys.forEach(function(pair) {
           var value = pair.value;
@@ -140,33 +137,41 @@
       return keys;
     },
     screenResolutionKey: function(keys) {
-      if(!this.options.excludeScreenResolution) {
-        return this.getScreenResolution(keys);
+      if(this.options.excludeScreenResolution) { return keys; }
+      if(screen && screen.width && screen.height) {
+        keys.push({ key: "resolution", value: this.getResolution(screen.width, screen.height) });
+      }
+      if(screen && screen.availWidth && screen.availHeight) {
+        keys.push({ key: "available_resolution", value: this.getResolution(screen.availWidth, screen.availHeight) });
       }
       return keys;
     },
-    getScreenResolution: function(keys) {
-      var resolution;
-      var available;
-      if(this.options.detectScreenOrientation) {
-        resolution = (screen.height > screen.width) ? [screen.height, screen.width] : [screen.width, screen.height];
+    getResolution: function(w, h) {
+      if(this.options.detectScreenOrientation && h > w) {
+        return this.scaleResolution(h, w);
       } else {
-        resolution = [screen.width, screen.height];
+        return this.scaleResolution(w, h);
       }
-      if(typeof resolution !== "undefined") { // headless browsers
-        keys.push({key: "resolution", value: resolution});
-      }
-      if(screen.availWidth && screen.availHeight) {
-        if(this.options.detectScreenOrientation) {
-          available = (screen.availHeight > screen.availWidth) ? [screen.availHeight, screen.availWidth] : [screen.availWidth, screen.availHeight];
-        } else {
-          available = [screen.availHeight, screen.availWidth];
+    },
+    // to get resolution, independent on page zoom
+    scaleResolution: function(w, h) {
+      var round5 = function (x) { return Math.round(x / 5) * 5; };
+      var round10 = function (x) { return Math.round(x / 10) * 10; };
+      if (w && h) {
+        var zoom = 1.0;
+        if (this.isIE()) {
+          zoom = screen.deviceXDPI / screen.systemXDPI;
+          zoom = round5(zoom * 100) / 100;
+        }
+        else if (this.isFF()) {
+          zoom = window.devicePixelRatio;
+        }
+        if (zoom !== 1.0) {
+          h = round10(h * zoom);
+          w = round10(w * zoom);
         }
       }
-      if(typeof available !== "undefined") { // headless browsers
-        keys.push({key: "available_resolution", value: available});
-      }
-      return keys;
+      return [w, h];
     },
     timezoneOffsetKey: function(keys) {
       if(!this.options.excludeTimezoneOffset) {
@@ -245,12 +250,6 @@
       keys.push({key: "webgl", value: this.getWebglFp()});
       return keys;
     },
-    adBlockKey: function(keys){
-      if(!this.options.excludeAdBlock) {
-        keys.push({key: "adblock", value: this.getAdBlock()});
-      }
-      return keys;
-    },
     hasLiedLanguagesKey: function(keys){
       if(!this.options.excludeHasLiedLanguages){
         keys.push({key: "has_lied_languages", value: this.getHasLiedLanguages()});
@@ -275,63 +274,23 @@
       }
       return keys;
     },
-    fontsKey: function(keys, done) {
-      if (this.options.excludeJsFonts) {
-        return this.flashFontsKey(keys, done);
-      }
-      return this.jsFontsKey(keys, done);
-    },
-    // flash fonts (will increase fingerprinting time 20X to ~ 130-150ms)
-    flashFontsKey: function(keys, done) {
-      if(this.options.excludeFlashFonts) {
-        if(typeof NODEBUG === "undefined"){
-          this.log("Skipping flash fonts detection per excludeFlashFonts configuration option");
-        }
-        return done(keys);
-      }
-      // we do flash if swfobject is loaded
-      if(!this.hasSwfObjectLoaded()){
-        if(typeof NODEBUG === "undefined"){
-          this.log("Swfobject is not detected, Flash fonts enumeration is skipped");
-        }
-        return done(keys);
-      }
-      if(!this.hasMinFlashInstalled()){
-        if(typeof NODEBUG === "undefined"){
-          this.log("Flash is not installed, skipping Flash fonts enumeration");
-        }
-        return done(keys);
-      }
-      if(typeof this.options.swfPath === "undefined"){
-        if(typeof NODEBUG === "undefined"){
-          this.log("To use Flash fonts detection, you must pass a valid swfPath option, skipping Flash fonts enumeration");
-        }
-        return done(keys);
-      }
-      this.loadSwfAndDetectFonts(function(fonts){
-        keys.push({key: "swf_fonts", value: fonts.join(";")});
-        done(keys);
-      });
-    },
     // kudos to http://www.lalit.org/lab/javascript-css-font-detect/
     jsFontsKey: function(keys, done) {
+      if (this.options.excludeJsFonts) {
+        return done(keys);
+      }
       var that = this;
       // doing js fonts detection in a pseudo-async fashion
       return setTimeout(function(){
-
         // a font will be compared against all the three default fonts.
         // and if it doesn't match all 3 then that font is not available.
         var baseFonts = ["monospace", "sans-serif", "serif"];
-
         //we use m or w because these two characters take up the maximum width.
         // And we use a LLi so that the same matching fonts can get separated
         var testString = "mmmmmmmmmmlli";
-
         //we test using 72px font size, we may use any size. I guess larger the better.
         var testSize = "72px";
-
         var h = document.getElementsByTagName("body")[0];
-
         // create a SPAN in the document to get the width of the text we use to test
         var s = document.createElement("span");
         s.style.fontSize = testSize;
@@ -627,7 +586,6 @@
       result.push("canvas fp:" + canvas.toDataURL());
       return result.join("~");
     },
-
     getWebglFp: function() {
       var gl;
       var fa2s = function(fa) {
@@ -744,17 +702,6 @@
       result.push("webgl fragment shader low int precision rangeMin:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.LOW_INT ).rangeMin);
       result.push("webgl fragment shader low int precision rangeMax:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.LOW_INT ).rangeMax);
       return result.join("~");
-    },
-    getAdBlock: function(){
-      var ads = document.createElement("div");
-      ads.setAttribute("id", "ads");
-      try {
-        // body may not exist, that's why we need try/catch
-        document.body.appendChild(ads);
-        return document.getElementById("ads") ? false : true;
-      } catch (e) {
-        return false;
-      }
     },
     getHasLiedLanguages: function(){
       //We check if navigator.language is equal to the first language of navigator.languages
@@ -925,27 +872,8 @@
       }
       return false;
     },
-    hasSwfObjectLoaded: function(){
-      return typeof window.swfobject !== "undefined";
-    },
-    hasMinFlashInstalled: function () {
-      return swfobject.hasFlashPlayerVersion("9.0.0");
-    },
-    addFlashDivNode: function() {
-      var node = document.createElement("div");
-      node.setAttribute("id", this.options.swfContainerId);
-      document.body.appendChild(node);
-    },
-    loadSwfAndDetectFonts: function(done) {
-      var hiddenCallback = "___fp_swf_loaded";
-      window[hiddenCallback] = function(fonts) {
-        done(fonts);
-      };
-      var id = this.options.swfContainerId;
-      this.addFlashDivNode();
-      var flashvars = { onReady: hiddenCallback};
-      var flashparams = { allowScriptAccess: "always", menu: "false" };
-      swfobject.embedSWF(this.options.swfPath, id, "1", "1", "9.0.0", false, flashvars, flashparams, {});
+    isFF: function () {
+      return !!navigator.userAgent.match(/firefox/i);
     },
     getWebglCanvas: function() {
       var canvas = document.createElement("canvas");
@@ -974,7 +902,6 @@
         }
       }
     },
-
     map: function(obj, iterator, context) {
       var results = [];
       // Not using strict equality so that this acts as a
@@ -988,7 +915,6 @@
     },
 
     /// MurmurHash3 related functions
-
     //
     // Given two 64bit ints (as an array of two 32bit ints) returns the two
     // added together as a 64bit int (as an array of two 32bit ints).
@@ -1010,7 +936,6 @@
       o[0] &= 0xffff;
       return [(o[0] << 16) | o[1], (o[2] << 16) | o[3]];
     },
-
     //
     // Given two 64bit ints (as an array of two 32bit ints) returns the two
     // multiplied together as a 64bit int (as an array of two 32bit ints).
@@ -1096,7 +1021,6 @@
       h = this.x64Xor(h, [0, h[0] >>> 1]);
       return h;
     },
-
     //
     // Given a string and an optional seed as an int, returns a 128 bit
     // hash using the x64 flavor of MurmurHash3, as an unsigned hex.
@@ -1183,6 +1107,6 @@
       return ("00000000" + (h1[0] >>> 0).toString(16)).slice(-8) + ("00000000" + (h1[1] >>> 0).toString(16)).slice(-8) + ("00000000" + (h2[0] >>> 0).toString(16)).slice(-8) + ("00000000" + (h2[1] >>> 0).toString(16)).slice(-8);
     }
   };
-  Fingerprint2.VERSION = "1.0.1";
+  Fingerprint2.VERSION = "2.0.0-dev";
   return Fingerprint2;
 });
