@@ -72,26 +72,49 @@
 
   <p>Your browser fingerprint: <strong id="fp"></strong></p>
   <p><code id="time"/></p>
-
+  <div id="detailBlock" style="overflow-x:auto; margin-bottom:10px;"></div>
+   
   <button type="button" id="btn">Get my fingerprint</button>
 
   <a href="https://github.com/Valve/fingerprintjs2"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/365986a132ccd6a44c23a9169022c0b5c890c387/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png"></a>
 
+  <script src="dist/swfobject.js"></script>
   <script src="fingerprint2.js"></script>
   <script>
     $("#btn").on("click", function () {
-      var d1 = new Date();
-      var fp = new Fingerprint2();
-      fp.get(function(result) {
-        var d2 = new Date();
-        var timeString = "Time took to calculate the fingerprint: " + (d2 - d1) + "ms";
-        if(typeof window.console !== "undefined") {
-          console.log(timeString);
-          console.log(result);
-        }
-        $("#fp").text(result);
-        $("#time").text(timeString);
-      });
+        var d1 = new Date();
+        fpObj = new Fingerprint2({excludeJsFonts : true});
+        fpObj.get(function(result) {
+            var d2 = new Date();
+            var timeString = "Time took to calculate the fingerprint: " + (d2 - d1) + "ms";
+            if(typeof window.console !== "undefined") {
+              console.log(timeString);
+              console.log(result);
+            }
+            $("#fp").text(result);
+            $("#time").text(timeString);
+            
+            var details = fpObj.details || [], tds = [], i = 0, tpl, temp, tempValue;
+            console && console.log('details = ', details);
+            for (i; i < details.length; i++) {
+                temp = details[i];
+                tempValue = temp.value || '';
+                tempValue = tempValue.join ? tempValue.join() : tempValue;
+                tds.push('<tr><td>' +  i + '</td><td>' + temp.key + '</td><td>' + tempValue + '</td></tr>');
+            }
+            tpl = [
+                '<table class="table table-bordered table-striped" id="detailTable" style="width:100%; table-layout: fixed;">',
+                    '<thead>',
+                        '<th style="width:110px;">#</th><th>key</th><th>value</th>',
+                    '</thead>',
+                    '<tbody>',
+                        tds.join(''),
+                    '</tbody>',
+                '</table>'
+            ].join('');
+            var element = document.getElementById('detailBlock');
+            element.innerHTML = tpl;
+        });
     });
   </script>
 </body>

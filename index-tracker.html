@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title>fingerprint details</title>
+
+    <!-- Bootstrap -->
+    <link href="dist/bootstrap-3.3.6/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    -->
+  </head>
+  <body>
+    <div class="container">
+        <div class="page-header">
+            <h1>Fingerprint details</h1>
+        </div>
+        <div class="row" id="detailBlock">
+            <table class="table table-bordered table-striped">
+                <!-- <caption>Optional table caption.</caption> -->
+                <thead>
+                    <th style="width:110px;">#</th>
+                    <th>key</th>
+                    <th>value</th>
+                </thead>
+                <tbody>
+                    <td colspan="3">tracking...</td>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <!-- <script src="dist/jquery-1.12.1.min.js"></script> -->
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <!-- <script src="dist/bootstrap-3.3.6/js/bootstrap.min.js"></script> -->
+    
+    <!--[if lt IE 9]>
+      <script src="dist/respond.min.js"></script>
+    <![endif]-->
+    <script src="dist/PluginDetect_AllPlugins.js"></script>
+    <script src="dist/swfobject.js"></script>
+    <script src="tracker.js"></script>
+    <script>
+        setTimeout(function () {
+            FpTracker.getDetail(function (details) {
+                var tds = [], i = 0, tpl;
+                console && console.log('details = ', details);
+                for (var key in details) {
+                    if (details.hasOwnProperty(key)) {
+                        tds.push('<tr><td>' +  i++ + '</td><td>' + key + '</td><td>' + details[key] + '</td></tr>');
+                    }
+                }
+                tpl = [
+                    '<table class="table table-bordered table-striped" id="detailTable">',
+                        '<thead>',
+                            '<th style="width:110px;">#</th><th>key</th><th>value</th>',
+                        '</thead>',
+                        '<tbody>',
+                            tds.join(''),
+                        '</tbody>',
+                    '</table>'
+                ].join('');
+                var element = document.getElementById('detailBlock');
+                element.innerHTML = tpl;
+            });
+        }, 500);
+    </script>
+  </body>
+</html>

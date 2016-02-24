@@ -64,6 +64,7 @@
 			detectScreenOrientation : true,
 			sortPluginsFor : [/palemoon/i]
 		};
+        this.details = [];
 		this.options = this.extend(options, defaultOptions);
 		this.nativeForEach = Array.prototype.forEach;
 		this.nativeMap = Array.prototype.map;
@@ -112,6 +113,7 @@
 			keys = this.touchSupportKey(keys);
 			var that = this;
 			this.fontsKey(keys, function (newKeys) {
+                that.details = newKeys;
 				var values = [];
 				that.each(newKeys, function (pair) {
 					var value = pair.value;
@@ -121,8 +123,9 @@
 					values.push(value);
 				});
 				var murmur = that.x64hash128(values.join("~~~"), 31);
-				return done(murmur, newKeys);
+				return done && done(murmur, newKeys);
 			});
+            
 		},
 		userAgentKey : function (keys) {
 			if (!this.options.excludeUserAgent) {
