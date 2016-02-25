@@ -77,6 +77,36 @@
 			}
 			return false;
 		},
+        stringify : function (obj) {
+            if ("JSON" in window) {
+                return JSON.stringify(obj);
+            }
+
+            var t = typeof obj;
+            if (t != "object" || obj === null) {
+                // simple data type
+                if (t == "string") obj = '"' + obj.replace(/"/g,'\\\"') + '"';
+                return String(obj);
+            } else {
+                // recurse array or object
+                var n, v, json = [], arr = (obj && obj.constructor == Array);
+
+                for (n in obj) {
+                    v = obj[n];
+                    t = typeof v;
+                    if (obj.hasOwnProperty(n)) {
+                        if (t == "string") {
+                            v = '"' + v.replace(/"/g,'\\\"') + '"';
+                        } else if (t == "object" && v !== null){
+                            v = this.stringify(v);
+                        }
+                        json.push((arr ? "" : '"' + n + '":') + String(v));
+                    }
+                }
+
+                return (arr ? "[" : "{") + String(json) + (arr ? "]" : "}");
+            }
+        },
         param : function (data) {
             if (!_utility.isObject(data)) {
                 return;
@@ -155,7 +185,9 @@
     function Tracker(options) {
         var defaults = {
             swfContainerId : "fingerprint_tracker",
-			swfPath : "flash/compiled/FontList.swf"
+            swfContainerId2 : "fingerprint_tracker",
+			swfPath : "flash/compiled/FontList.swf",
+			swfPath2 : "flash/compiled/FontList2.swf"
         };
         this.options = _utility.extend({}, defaults, options || {});
     }
@@ -166,7 +198,8 @@
                 typeof done === 'function' && done(that.details);
                 return;
             }
-            this.details =  {
+            var webglObj = this.getWebgl();
+            this.details = {
                 'platform' : this.getPlatform(),
                 'cookieEnabled' : this.getCookieEnabled(),
                 'doNotTrack' : this.getDoNotTrack(),
@@ -175,6 +208,9 @@
                 'localStorage' : this.getLocalStorage(),
                 'sessionStorage' : this.getSessionStorage(),
                 'language' : this.getLanguage(),
+                'touchSupport' : this.getTouchSupport(),
+                'WebGL Vendor' : webglObj.webGLVendor,
+                'WebGL Renderer' : webglObj.webGLRenderer,
                 'plugins' : this.getPlugins()
             };
             var func = function (fonts) {
@@ -185,10 +221,11 @@
         },
         log : function () {
             this.getDetail(function (details) {
-               _utility.ajax({
-                    url : 'http://www.gridsum.com',
+                details.username = 'zhangbiaoguang'; //TODO
+                _utility.ajax({
+                    url : 'http://10.201.50.181/v2/user/test',
                     method : 'post',
-                    data : details,
+                    data : {'data' : _utility.stringify(details)},
                     success : function (result, xmlHttp) {
                         window.console && console.log('服务器请求成功');
                     },
@@ -214,9 +251,9 @@
         },
         getDoNotTrack : function () {
             if (navigator.platform) {
-				return navigator.doNotTrack;
+				return navigator.doNotTrack || '-';
 			} else {
-				return "unknown";
+				return "-";
 			}
         },
         getTimeZone : function () {
@@ -333,7 +370,11 @@
 					"Palatino", "Palatino Linotype",
 					"Segoe Print", "Segoe Script", "Segoe UI", "Segoe UI Light", "Segoe UI Semibold", "Segoe UI Symbol",
 					"Tahoma", "Times", "Times New Roman", "Times New Roman PS", "Trebuchet MS",
-					"Verdana", "Wingdings", "Wingdings 2", "Wingdings 3"
+					"Verdana", "Wingdings", "Wingdings 2", "Wingdings 3",
+                    '仿宋', '华文中宋', '华文仿宋', '华文宋体', '华文彩云', '华文新魏', '华文楷体', '华文琥珀', 
+                    '华文细黑', '华文行楷', '华文隶书', '宋体', '幼圆', '微软雅黑', '新宋体', '方正兰亭超细黑简体',
+                    '方正兰亭黑_YS_GB18030', '方正姚体', '方正舒体', '楷体', '汉仪南宫体简', '汉仪娃娃篆简',
+                    '汉仪瘦金书简', '汉仪篆书繁', '隶书', '黑体'
 				];
 				var extendedFontList = [
 					"Abadi MT Condensed Light", "Academy Engraved LET", "ADOBE CASLON PRO", "Adobe Garamond", "ADOBE GARAMOND PRO", "Agency FB", "Aharoni", "Albertus Extra Bold", "Albertus Medium", "Algerian", "Amazone BT", "American Typewriter",
@@ -407,8 +448,169 @@
                         window.console && console.dir(e);
                     }
                 });
+            } else if (_utility.isIE()) { //It's just for IE11 && Edge browser.
+                var id = this.options.swfContainerId2;
+                var elem = document.getElementById(id);
+                elem && elem.parentNode && elem.parentNode.removeChild(elem);
+                var node = document.createElement("div");
+                node.setAttribute("id", id);
+                node.innerHTML = '<embed name="flashfontshelper" width="1" height="1" id="flashfontshelper" src="' + this.options.swfPath2 + '" type="application/x-shockwave-flash" wmode="transparent" flashvars="" swliveconnect="true"></embed>';
+                document.body.appendChild(node);
+                
+                setTimeout(function () {
+                    var obj = document.getElementById("flashfontshelper");
+                    if (obj && typeof(obj.GetVariable) != "undefined") {
+                        var fonts = obj.GetVariable("/:user_fonts");
+                        done(fonts.split(','))
+                    } else {
+                       that.getJSFonts(done); 
+                    }
+                }, 500);
             } else {
                 this.getJSFonts(done);
+            }
+        },
+        getTouchSupport : function () {
+			var maxTouchPoints = 0;
+			var touchEvent = false;
+			if (typeof navigator.maxTouchPoints !== "undefined") {
+				maxTouchPoints = navigator.maxTouchPoints;
+			} else if (typeof navigator.msMaxTouchPoints !== "undefined") {
+				maxTouchPoints = navigator.msMaxTouchPoints;
+			}
+			try {
+				document.createEvent("TouchEvent");
+				touchEvent = true;
+			} catch (_) {
+				/* squelch */
+			}
+			var touchStart = "ontouchstart" in window;
+			return ['Max touchpoints: ' + maxTouchPoints, 'TouchEvent supported: ' + touchEvent, 'onTouchStart supported: ' + touchStart].join(', ');
+		},
+        getWebgl : function () {
+            var webGLData, webGLVendor, webGLRenderer;
+            try {
+                var fa2s = function(fa) {
+                    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                    gl.enable(gl.DEPTH_TEST);
+                    gl.depthFunc(gl.LEQUAL);
+                    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                    return "[" + fa[0] + ", " + fa[1] + "]";
+                };
+                var maxAnisotropy = function(gl) {
+                    var anisotropy, ext = gl.getExtension("EXT_texture_filter_anisotropic") || gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic") || gl.getExtension("MOZ_EXT_texture_filter_anisotropic");
+                    return ext ? (anisotropy = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT), 0 === anisotropy && (anisotropy = 2), anisotropy) : null;
+                };
+                var canvas = document.createElement("canvas");
+                var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+                var result = [];
+                var vShaderTemplate = "attribute vec2 attrVertex;varying vec2 varyinTexCoordinate;uniform vec2 uniformOffset;void main(){varyinTexCoordinate=attrVertex+uniformOffset;gl_Position=vec4(attrVertex,0,1);}";
+                var fShaderTemplate = "precision mediump float;varying vec2 varyinTexCoordinate;void main() {gl_FragColor=vec4(varyinTexCoordinate,0,1);}";
+                var vertexPosBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexPosBuffer);
+                var vertices = new Float32Array([-.2, -.9, 0, .4, -.26, 0, 0, .732134444, 0]);
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+                vertexPosBuffer.itemSize = 3;
+                vertexPosBuffer.numItems = 3;
+                var program = gl.createProgram(), vshader = gl.createShader(gl.VERTEX_SHADER);
+                gl.shaderSource(vshader, vShaderTemplate);
+                gl.compileShader(vshader);
+                var fshader = gl.createShader(gl.FRAGMENT_SHADER);
+                gl.shaderSource(fshader, fShaderTemplate);
+                gl.compileShader(fshader);
+                gl.attachShader(program, vshader);
+                gl.attachShader(program, fshader);
+                gl.linkProgram(program);
+                gl.useProgram(program);
+                program.vertexPosAttrib = gl.getAttribLocation(program, "attrVertex");
+                program.offsetUniform = gl.getUniformLocation(program, "uniformOffset");
+                gl.enableVertexAttribArray(program.vertexPosArray);
+                gl.vertexAttribPointer(program.vertexPosAttrib, vertexPosBuffer.itemSize, gl.FLOAT, !1, 0, 0);
+                gl.uniform2f(program.offsetUniform, 1, 1);
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertexPosBuffer.numItems);
+                if (gl.canvas != null) { result.push(gl.canvas.toDataURL()); }
+                result.push("extensions:" + gl.getSupportedExtensions().join(";"));
+                result.push("webgl aliased line width range:" + fa2s(gl.getParameter(gl.ALIASED_LINE_WIDTH_RANGE)));
+                result.push("webgl aliased point size range:" + fa2s(gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE)));
+                result.push("webgl alpha bits:" + gl.getParameter(gl.ALPHA_BITS));
+                result.push("webgl antialiasing:" + (gl.getContextAttributes().antialias ? "yes" : "no"));
+                result.push("webgl blue bits:" + gl.getParameter(gl.BLUE_BITS));
+                result.push("webgl depth bits:" + gl.getParameter(gl.DEPTH_BITS));
+                result.push("webgl green bits:" + gl.getParameter(gl.GREEN_BITS));
+                result.push("webgl max anisotropy:" + maxAnisotropy(gl));
+                result.push("webgl max combined texture image units:" + gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS));
+                result.push("webgl max cube map texture size:" + gl.getParameter(gl.MAX_CUBE_MAP_TEXTURE_SIZE));
+                result.push("webgl max fragment uniform vectors:" + gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS));
+                result.push("webgl max render buffer size:" + gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
+                result.push("webgl max texture image units:" + gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS));
+                result.push("webgl max texture size:" + gl.getParameter(gl.MAX_TEXTURE_SIZE));
+                result.push("webgl max varying vectors:" + gl.getParameter(gl.MAX_VARYING_VECTORS));
+                result.push("webgl max vertex attribs:" + gl.getParameter(gl.MAX_VERTEX_ATTRIBS));
+                result.push("webgl max vertex texture image units:" + gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS));
+                result.push("webgl max vertex uniform vectors:" + gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS));
+                result.push("webgl max viewport dims:" + fa2s(gl.getParameter(gl.MAX_VIEWPORT_DIMS)));
+                result.push("webgl red bits:" + gl.getParameter(gl.RED_BITS));
+                result.push("webgl renderer:" + gl.getParameter(gl.RENDERER));
+                result.push("webgl shading language version:" + gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
+                result.push("webgl stencil bits:" + gl.getParameter(gl.STENCIL_BITS));
+                result.push("webgl vendor:" + gl.getParameter(gl.VENDOR));
+                result.push("webgl version:" + gl.getParameter(gl.VERSION));
+                result.push("webgl vertex shader high float precision:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.HIGH_FLOAT ).precision);
+                result.push("webgl vertex shader high float precision rangeMin:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.HIGH_FLOAT ).rangeMin);
+                result.push("webgl vertex shader high float precision rangeMax:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.HIGH_FLOAT ).rangeMax);
+                result.push("webgl vertex shader medium float precision:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.MEDIUM_FLOAT ).precision);
+                result.push("webgl vertex shader medium float precision rangeMin:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.MEDIUM_FLOAT ).rangeMin);
+                result.push("webgl vertex shader medium float precision rangeMax:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.MEDIUM_FLOAT ).rangeMax);
+                result.push("webgl vertex shader low float precision:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.LOW_FLOAT ).precision);
+                result.push("webgl vertex shader low float precision rangeMin:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.LOW_FLOAT ).rangeMin);
+                result.push("webgl vertex shader low float precision rangeMax:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.LOW_FLOAT ).rangeMax);
+                result.push("webgl fragment shader high float precision:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT ).precision);
+                result.push("webgl fragment shader high float precision rangeMin:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT ).rangeMin);
+                result.push("webgl fragment shader high float precision rangeMax:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT ).rangeMax);
+                result.push("webgl fragment shader medium float precision:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT ).precision);
+                result.push("webgl fragment shader medium float precision rangeMin:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT ).rangeMin);
+                result.push("webgl fragment shader medium float precision rangeMax:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT ).rangeMax);
+                result.push("webgl fragment shader low float precision:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.LOW_FLOAT ).precision);
+                result.push("webgl fragment shader low float precision rangeMin:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.LOW_FLOAT ).rangeMin);
+                result.push("webgl fragment shader low float precision rangeMax:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.LOW_FLOAT ).rangeMax);
+                result.push("webgl vertex shader high int precision:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.HIGH_INT ).precision);
+                result.push("webgl vertex shader high int precision rangeMin:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.HIGH_INT ).rangeMin);
+                result.push("webgl vertex shader high int precision rangeMax:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.HIGH_INT ).rangeMax);
+                result.push("webgl vertex shader medium int precision:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.MEDIUM_INT ).precision);
+                result.push("webgl vertex shader medium int precision rangeMin:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.MEDIUM_INT ).rangeMin);
+                result.push("webgl vertex shader medium int precision rangeMax:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.MEDIUM_INT ).rangeMax);
+                result.push("webgl vertex shader low int precision:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.LOW_INT ).precision);
+                result.push("webgl vertex shader low int precision rangeMin:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.LOW_INT ).rangeMin);
+                result.push("webgl vertex shader low int precision rangeMax:" + gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.LOW_INT ).rangeMax);
+                result.push("webgl fragment shader high int precision:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_INT ).precision);
+                result.push("webgl fragment shader high int precision rangeMin:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_INT ).rangeMin);
+                result.push("webgl fragment shader high int precision rangeMax:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_INT ).rangeMax);
+                result.push("webgl fragment shader medium int precision:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_INT ).precision);
+                result.push("webgl fragment shader medium int precision rangeMin:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_INT ).rangeMin);
+                result.push("webgl fragment shader medium int precision rangeMax:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_INT ).rangeMax);
+                result.push("webgl fragment shader low int precision:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.LOW_INT ).precision);
+                result.push("webgl fragment shader low int precision rangeMin:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.LOW_INT ).rangeMin);
+                result.push("webgl fragment shader low int precision rangeMax:" + gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.LOW_INT ).rangeMax);
+                webGLData = result.join(", ");
+
+                canvas = document.createElement('canvas');
+                var ctx = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+                if(ctx.getSupportedExtensions().indexOf("WEBGL_debug_renderer_info") >= 0) {
+                    webGLVendor = ctx.getParameter(ctx.getExtension('WEBGL_debug_renderer_info').UNMASKED_VENDOR_WEBGL);
+                    webGLRenderer = ctx.getParameter(ctx.getExtension('WEBGL_debug_renderer_info').UNMASKED_RENDERER_WEBGL);
+                } else {
+                    webGLVendor = "Not supported";
+                    webGLRenderer = "Not supported";
+                }
+            } catch(e){
+                webGLData = '-'; //"Not supported";
+                webGLVendor = '-'; //"Not supported";
+                webGLRenderer = '-'; //"Not supported";
+            }
+            return {
+                'webGLData' : webGLData,
+                'webGLVendor' : webGLVendor,
+                'webGLRenderer' : webGLRenderer
             }
         }
     };
