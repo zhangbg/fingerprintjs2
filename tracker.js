@@ -143,9 +143,7 @@
 			var thiz = this, dataStr, xmlHttp, key, result,
 				url = settings.url || '/', method = (settings.method || 'get').toLowerCase(),
 				async = settings.async === false ? false : true, data = settings.data, headers = settings.headers;
-
-			xmlHttp = new (XMLHttpRequest || ActiveXObject)('Microsoft.XMLHTTP');
-
+			
 			if (_utility.isObject(data)) {
 				dataStr = thiz.param(data);
 				if (method === 'get') {
@@ -154,28 +152,39 @@
 				}
 			}
 
-			xmlHttp.open(method, url, async);
-			xmlHttp.onreadystatechange = function () {
-				if (xmlHttp.readyState === 4) {
-					result = _utility.parseJSON(xmlHttp.responseText);
-					if (xmlHttp.status >= 200 && xmlHttp.status < 300) {
-						_utility.isFunction(settings.success) && settings.success.apply(xmlHttp, [result, xmlHttp]);
-					} else {
-						_utility.isFunction(settings.error) && settings.error.apply(xmlHttp, [result, xmlHttp]);
-					}
-				}
-				_utility.isFunction(settings.always) && settings.always.apply(xmlHttp, [result, xmlHttp]);
-			};
-
-			if (method === 'post' || _utility.isObject(headers)) {
-				headers = headers || {};
-				headers['Content-type'] = headers['Content-type'] || 'application/x-www-form-urlencoded';
-				for (key in headers) {
-					if (headers.hasOwnProperty(key)) {
-						xmlHttp.setRequestHeader(key, headers[key]);
-					}
-				}
-			}
+            if (settings.cors && 'XDomainRequest' in window && window.XDomainRequest !== null) {
+                xmlHttp = new XDomainRequest();
+                xmlHttp.open(method, url);
+                xmlHttp.onerror = function () {
+                    _utility.isFunction(settings.error) && settings.error.apply(xmlHttp, [result, xmlHttp]);
+                };
+                xmlHttp.onload = function () {
+                    _utility.isFunction(settings.success) && settings.success.apply(xmlHttp, [result, xmlHttp]);
+                };
+            } else {
+                xmlHttp = new (XMLHttpRequest || ActiveXObject)('Microsoft.XMLHTTP');
+                xmlHttp.open(method, url, async);
+                xmlHttp.onreadystatechange = function () {
+                    if (xmlHttp.readyState === 4) {
+                        result = _utility.parseJSON(xmlHttp.responseText);
+                        if (xmlHttp.status >= 200 && xmlHttp.status < 300) {
+                            _utility.isFunction(settings.success) && settings.success.apply(xmlHttp, [result, xmlHttp]);
+                        } else {
+                            _utility.isFunction(settings.error) && settings.error.apply(xmlHttp, [result, xmlHttp]);
+                        }
+                    }
+                    _utility.isFunction(settings.always) && settings.always.apply(xmlHttp, [result, xmlHttp]);
+                };
+                if (method === 'post' || _utility.isObject(headers)) {
+                    headers = headers || {};
+                    headers['Content-type'] = headers['Content-type'] || 'application/x-www-form-urlencoded';
+                    for (key in headers) {
+                        if (headers.hasOwnProperty(key)) {
+                            xmlHttp.setRequestHeader(key, headers[key]);
+                        }
+                    }
+                }    
+            }
 			xmlHttp.send(dataStr);
 
 			return xmlHttp;
@@ -216,13 +225,14 @@
             var func = function (fonts) {
                 that.details.fonts = fonts.join(', ');
                 typeof done === 'function' && done(that.details);
-            }
-            this.getFlashFonts(func); 
+            };
+            this.getFlashFonts(func);
         },
         log : function () {
             this.getDetail(function (details) {
                 details.username = 'zhangbiaoguang'; //TODO
                 _utility.ajax({
+                    cors : true,
                     url : 'http://10.201.50.181/v2/user/test',
                     method : 'post',
                     data : {'data' : _utility.stringify(details)},
@@ -461,7 +471,7 @@
                     var obj = document.getElementById("flashfontshelper");
                     if (obj && typeof(obj.GetVariable) != "undefined") {
                         var fonts = obj.GetVariable("/:user_fonts");
-                        done(fonts.split(','))
+                        done(fonts.split(','));
                     } else {
                        that.getJSFonts(done); 
                     }
@@ -508,7 +518,7 @@
                 var fShaderTemplate = "precision mediump float;varying vec2 varyinTexCoordinate;void main() {gl_FragColor=vec4(varyinTexCoordinate,0,1);}";
                 var vertexPosBuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER, vertexPosBuffer);
-                var vertices = new Float32Array([-.2, -.9, 0, .4, -.26, 0, 0, .732134444, 0]);
+                var vertices = new Float32Array([-0.2, -0.9, 0, 0.4, -0.26, 0, 0, 0.732134444, 0]);
                 gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
                 vertexPosBuffer.itemSize = 3;
                 vertexPosBuffer.numItems = 3;
@@ -611,7 +621,7 @@
                 'webGLData' : webGLData,
                 'webGLVendor' : webGLVendor,
                 'webGLRenderer' : webGLRenderer
-            }
+            };
         }
     };
     

@@ -44,14 +44,15 @@
     <!--[if lt IE 9]>
       <script src="dist/respond.min.js"></script>
     <![endif]-->
-    <script src="dist/PluginDetect_AllPlugins.js"></script>
+    <!-- <script src="dist/PluginDetect_AllPlugins.js"></script>
     <script src="dist/swfobject.js"></script>
-    <script src="tracker.js"></script>
+    <script src="tracker.js"></script> -->
+    <script src="build/tracker.min.js"></script>
     <script>
         setTimeout(function () {
             FpTracker.getDetail(function (details) {
                 var tds = [], i = 0, tpl;
-                console && console.log('details = ', details);
+                //console && console.log('details = ', details);
                 for (var key in details) {
                     if (details.hasOwnProperty(key)) {
                         tds.push('<tr><td>' +  i++ + '</td><td>' + key + '</td><td>' + details[key] + '</td></tr>');

@@ -1,29 +1,55 @@
-var gulp = require("gulp"),
-    eslint = require("gulp-eslint"),
-    rename = require("gulp-rename"),
-    uglify = require("gulp-uglify");
+var gulp = require('gulp'),
+	jshint = require('gulp-jshint'),
+	stylish = require('jshint-stylish'),
+	concat = require('gulp-concat'),
+	uglify = require('gulp-uglify'),
+	rename = require('gulp-rename'),
+	notify = require('gulp-notify'),
+	del = require('del');
+    
+var paths = ['dist/PluginDetect_AllPlugins.js', 'dist/swfobject.js', 'tracker.js'];
 
-gulp.task("lint", function() {
-  return gulp
-    .src("fingerprint2.js")
-    .pipe(eslint())
-    .pipe(eslint.format())
-    .pipe(eslint.failOnError());
+gulp.task('scripts', function() {
+	gulp.src(paths)
+		// .pipe(jshint())
+		// .pipe(jshint.reporter(stylish))
+		.pipe(concat('tracker.js', {newLine : '\n\n'}))
+		.pipe(uglify())
+		.pipe(rename({suffix: '.min'}))
+		.pipe(gulp.dest('build'))
+		.pipe(notify({ message: 'Scripts task complete' }));
 });
 
-gulp.task("minify", function() {
-  return gulp
-      .src("fingerprint2.js")
-      .pipe(rename({suffix: ".min"}))
-      .pipe(uglify({
-          compress: {
-            global_defs: {
-              NODEBUG: true
-            }
-          }
-      }))
-      .pipe(gulp.dest("dist/"));
+gulp.task('clean', function () {
+	return del(['build']);
+});
+
+gulp.task('watch', function () {
+    /* var watcher = gulp.watch(paths, ['clean', 'scripts']);
+    watcher.on('change', function(event) {
+        console.log('File ' + event.path + ' was ' + event.type + ', running tasks...');
+    }); */
+	
+    gulp.watch(paths, function (event) {
+		console.log('File ' + event.path + ' was ' + event.type + ', running tasks...');
+	});
+	gulp.watch(paths, ['scripts']);  //'clean', 
+    
+});
+
+gulp.task('default', ['clean'], function () {
+	gulp.start('scripts', 'watch');
 });
 
 
-gulp.task("default", ["lint", "minify"], function() {});
+
+gulp.task('test', function () {
+    gulp.src(['tracker.js'])
+		.pipe(jshint())
+		.pipe(jshint.reporter(stylish))
+		.pipe(concat('all.js', {newLine : '\n\n'}))
+		.pipe(uglify())
+		.pipe(rename({suffix: '.min'}))
+		.pipe(gulp.dest('build'))
+		.pipe(notify({ message: 'Scripts task complete' }));
+});
