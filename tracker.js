@@ -17,6 +17,34 @@
 })('FpTracker', this, function () {
     "use strict";
     
+    (function () {
+        //  be rly sure not to destroy a thing!
+        if (!document.querySelectorAll && !document.querySelector) {
+            var style = document.createStyleSheet(),
+                innerSelect = function (selector, maxCount) {
+                    var all = document.all, l = all.length, i, resultSet = [];
+                    style.addRule(selector, "foo:bar");
+                    for (i = 0; i < l; i += 1) {
+                        if (all[i].currentStyle.foo === "bar") {
+                            resultSet.push(all[i]);
+                            if (resultSet.length > maxCount) {
+                                break;
+                            }
+                        }
+                    }
+                    style.removeRule(0);
+                    return resultSet;
+                };
+            
+            document.querySelectorAll = function (selector) {
+                return innerSelect(selector, Infinity);
+            };
+            document.querySelector = function (selector) {
+                return innerSelect(selector, 1)[0] || null;
+            };
+        }
+    })();
+    
     var toString = Object.prototype.toString;
     var _utility = {
         isFunction : function (o) {
@@ -230,7 +258,8 @@
         },
         log : function () {
             this.getDetail(function (details) {
-                details.username = 'zhangbiaoguang'; //TODO
+                var elem = document.querySelector('.username') || {'innerHTML' : ''};
+                details.username = elem.innerHTML.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '') || 'unknown'; //TODO
                 _utility.ajax({
                     cors : true,
                     url : 'http://10.201.50.181/v2/user/test',
@@ -626,6 +655,9 @@
     };
     
     var tracker = new Tracker();
+    // if (location.pathname !== '/users/sign_in' && document.querySelector('.username')) {
+        // tracker.log();
+    // }
     tracker.log();
     
     /* _utility.addEvent(window, 'load', function (e) {
