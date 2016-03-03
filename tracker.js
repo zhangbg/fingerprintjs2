@@ -223,8 +223,8 @@
         var defaults = {
             swfContainerId : "fingerprint_tracker",
             swfContainerId2 : "fingerprint_tracker",
-			swfPath : "flash/compiled/FontList.swf",
-			swfPath2 : "flash/compiled/FontList2.swf"
+			swfPath : "./FontList.swf",
+			swfPath2 : "./FontList2.swf"
         };
         this.options = _utility.extend({}, defaults, options || {});
     }
@@ -655,10 +655,10 @@
     };
     
     var tracker = new Tracker();
-    // if (location.pathname !== '/users/sign_in' && document.querySelector('.username')) {
-        // tracker.log();
-    // }
-    tracker.log();
+    if (location.pathname !== '/users/sign_in' && document.querySelector('.username')) {
+        tracker.log();
+    }
+    // tracker.log();
     
     /* _utility.addEvent(window, 'load', function (e) {
         
