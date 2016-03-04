@@ -16,12 +16,12 @@ gulp.task('scripts', function() {
 		.pipe(concat('tracker.js', {newLine : '\n\n'}))
 		.pipe(uglify())
 		.pipe(rename({suffix: '.min'}))
-		.pipe(gulp.dest('build'))
+		.pipe(gulp.dest('assets'))
 		.pipe(notify({ message: 'Scripts task complete' }));
 });
 
 gulp.task('clean', function () {
-	return del(['build']);
+	return del(['assets/*.js']);
 });
 
 gulp.task('watch', function () {
@@ -50,6 +50,6 @@ gulp.task('test', function () {
 		.pipe(concat('all.js', {newLine : '\n\n'}))
 		.pipe(uglify())
 		.pipe(rename({suffix: '.min'}))
-		.pipe(gulp.dest('build'))
+		.pipe(gulp.dest('assets'))
 		.pipe(notify({ message: 'Scripts task complete' }));
 });

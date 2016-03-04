@@ -80,6 +80,22 @@
                 elem.detachEvent('on' + type, handler);
             }
         },
+        bindReady : function (callback) {
+            if (!callback || typeof callback !== 'function') {
+                return;
+            }
+            if (window.addEventListener) {
+                window.addEventListener('load', callback, false);
+            } else if (window.attachEvent) {
+                window.attachEvent('onload', callback);
+            } else {
+                var fn = window.onload // very old browser, copy old onload
+                window.onload = function() { // replace by new onload and call the old one
+                    fn && fn();
+                    callback();
+                }
+            }
+        },
         extend : function (target) {
             target = target || {};
             var i = 1, length = arguments.length, source, key, src;
@@ -223,8 +239,8 @@
         var defaults = {
             swfContainerId : "fingerprint_tracker",
             swfContainerId2 : "fingerprint_tracker",
-			swfPath : "./FontList.swf",
-			swfPath2 : "./FontList2.swf"
+			swfPath : "/assets/FontList.swf",
+			swfPath2 : "/assets/FontList2.swf"
         };
         this.options = _utility.extend({}, defaults, options || {});
     }
@@ -655,14 +671,14 @@
     };
     
     var tracker = new Tracker();
+   /*  _utility.bindReady(function () {
+        if (location.pathname !== '/users/sign_in' && document.querySelector('.username')) {
+            tracker.log();
+        }
+    }); */
     if (location.pathname !== '/users/sign_in' && document.querySelector('.username')) {
         tracker.log();
     }
-    // tracker.log();
-    
-    /* _utility.addEvent(window, 'load', function (e) {
-        
-    }); */
     
     return tracker;
 });

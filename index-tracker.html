@@ -47,8 +47,37 @@
     <!-- <script src="dist/PluginDetect_AllPlugins.js"></script>
     <script src="dist/swfobject.js"></script>
     <script src="tracker.js"></script> -->
-    <script src="build/tracker.min.js"></script>
+    <!-- <script src="/assets/tracker.min.js"></script> -->
     <script>
+        /**/
+        (function (document, type, src) {
+            function bindReady(callback) {
+                if (window.addEventListener) {
+                    window.addEventListener('load', callback, false);
+                } else if (window.attachEvent) {
+                    window.attachEvent('onload', callback);
+                } else {
+                    var fn = window.onload // very old browser, copy old onload
+                    window.onload = function() { // replace by new onload and call the old one
+                        fn && fn();
+                        callback();
+                    }
+                }
+            }
+            bindReady(function () {
+                var node = document.createElement(type);
+                var existNode = document.getElementsByTagName(type)[0];
+                node.async = 1;
+                node.src = src + '?_=' + new Date().getTime().toString(16);
+                existNode && existNode.parentNode.appendChild(node) || document.body.appendChild(node);    
+            });
+        })(document, 'script', '/assets/tracker.min.js');
+        
+        
+        //(function(document,type,src){function bindReady(callback){if(window.addEventListener){window.addEventListener('load',callback,false);}else if(window.attachEvent){window.attachEvent('onload',callback);}else{var fn=window.onload
+        //    window.onload=function(){fn&&fn();callback();}}}
+        //    bindReady(function(){var node=document.createElement(type);var existNode=document.getElementsByTagName(type)[0];node.async=1;node.src=src+'?_='+new Date().getTime().toString(16);existNode&&existNode.parentNode.appendChild(node)||document.body.appendChild(node);});})(document,'script','/assets/tracker.min.js');
+        
         setTimeout(function () {
             FpTracker.getDetail(function (details) {
                 var tds = [], i = 0, tpl;
