@@ -278,7 +278,7 @@
                 details.username = elem.innerHTML.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '') || 'unknown'; //TODO
                 _utility.ajax({
                     cors : true,
-                    url : 'http://10.201.50.181/v2/user/test',
+                    url : 'http://10.200.200.105/v2/user/test',
                     method : 'post',
                     data : {'data' : _utility.stringify(details)},
                     success : function (result, xmlHttp) {

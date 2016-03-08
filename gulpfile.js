@@ -21,7 +21,7 @@ gulp.task('scripts', function() {
 });
 
 gulp.task('clean', function () {
-	return del(['assets/*.js']);
+	return del(['assets/tracker.min.js']);
 });
 
 gulp.task('watch', function () {
